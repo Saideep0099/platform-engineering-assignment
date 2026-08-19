@@ -1,0 +1,33 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: enrollment-service-local
+  namespace: argocd
+spec:
+  project: default
+  source:
+    repoURL: https://github.com/Saideep0099/platform-engineering-assignment.git
+    targetRevision: main
+    path: helm/enrollment-service
+    helm:
+      values: |
+        image:
+          repository: enrollment-service
+          tag: local
+          pullPolicy: Never
+        ingress:
+          enabled: false
+        serviceAccount:
+          annotations: {}
+        autoscaling:
+          enabled: false
+        replicaCount: 3
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: enrollment
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
