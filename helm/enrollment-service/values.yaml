@@ -1,0 +1,64 @@
+replicaCount: 3
+
+image:
+  repository: 123456789012.dkr.ecr.us-east-1.amazonaws.com/enrollment-service
+  tag: ""            # ALWAYS set by CI/GitOps — never :latest
+  pullPolicy: IfNotPresent
+
+serviceAccount:
+  create: true
+  name: enrollment-service
+  # IRSA: annotate the SA with the IAM role — no AWS keys in the pod
+  annotations:
+    eks.amazonaws.com/role-arn: arn:aws:iam::123456789012:role/dev-enrollment-irsa
+
+service:
+  type: ClusterIP
+  port: 80
+  targetPort: 8080
+
+ingress:
+  enabled: true
+  className: alb
+  annotations:
+    alb.ingress.kubernetes.io/scheme: internet-facing
+    alb.ingress.kubernetes.io/target-type: ip
+    alb.ingress.kubernetes.io/listen-ports: '[{"HTTPS":443},{"HTTP":80}]'
+    alb.ingress.kubernetes.io/ssl-redirect: "443"
+    # TLS terminates at the ALB with an ACM cert
+    alb.ingress.kubernetes.io/certificate-arn: arn:aws:acm:us-east-1:123456789012:certificate/REPLACE
+    alb.ingress.kubernetes.io/healthcheck-path: /health
+  host: enrollment.dev.example.com
+
+resources:
+  requests:
+    cpu: 250m
+    memory: 256Mi
+  limits:
+    cpu: "1"
+    memory: 512Mi
+
+autoscaling:
+  enabled: true
+  minReplicas: 3
+  maxReplicas: 10
+  targetCPUUtilizationPercentage: 70
+
+podDisruptionBudget:
+  enabled: true
+  minAvailable: 2
+
+env:
+  LOG_LEVEL: INFO
+
+probes:
+  readiness:
+    path: /health
+    initialDelaySeconds: 5
+    periodSeconds: 10
+    failureThreshold: 3
+  liveness:
+    path: /health
+    initialDelaySeconds: 15
+    periodSeconds: 20
+    failureThreshold: 3

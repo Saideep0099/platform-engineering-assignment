@@ -1,0 +1,10 @@
+image:
+  tag: ""
+replicaCount: 3
+autoscaling:
+  minReplicas: 3
+  maxReplicas: 10
+ingress:
+  host: enrollment.example.com
+podDisruptionBudget:
+  minAvailable: 2

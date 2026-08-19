@@ -1,0 +1,8 @@
+image:
+  tag: ""   # CI writes the new immutable tag here via PR/commit
+replicaCount: 2
+autoscaling:
+  minReplicas: 2
+  maxReplicas: 4
+ingress:
+  host: enrollment.dev.example.com

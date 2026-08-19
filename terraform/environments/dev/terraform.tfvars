@@ -1,0 +1,10 @@
+environment            = "dev"
+cluster_name           = "dev-platform-eks"
+vpc_cidr               = "10.10.0.0/16"
+azs                    = ["us-east-1a", "us-east-1b"]
+public_subnets         = ["10.10.0.0/20", "10.10.16.0/20"]
+private_subnets        = ["10.10.32.0/20", "10.10.48.0/20"]
+node_desired_size      = 2
+node_min_size          = 1
+node_max_size          = 4
+node_security_group_id = "sg-REPLACE-dev-nodes"

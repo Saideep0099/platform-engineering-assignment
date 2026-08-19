@@ -1,0 +1,88 @@
+// CI pipeline: build -> test -> scan -> push -> update GitOps repo.
+// Jenkins NEVER runs kubectl/helm against the cluster — ArgoCD owns CD.
+pipeline {
+  agent { label 'linux' }
+
+  environment {
+    AWS_REGION  = 'us-east-1'
+    ECR_REPO    = '123456789012.dkr.ecr.us-east-1.amazonaws.com/enrollment-service'
+    // Immutable, traceable version: shortsha + build number
+    IMAGE_TAG   = "${env.GIT_COMMIT.take(8)}-${env.BUILD_NUMBER}"
+    GITOPS_REPO = 'git@git.example.com:platform/gitops-config.git'
+  }
+
+  options {
+    timestamps()
+    disableConcurrentBuilds()
+    buildDiscarder(logRotator(numToKeepStr: '30'))
+  }
+
+  stages {
+    stage('Checkout')   { steps { checkout scm } }
+
+    stage('Unit Tests') {
+      steps {
+        sh '''
+          python -m venv .venv && . .venv/bin/activate
+          pip install -r application/requirements.txt pytest httpx
+          pytest application/tests -q --junitxml=reports/junit.xml
+        '''
+      }
+      post { always { junit 'reports/junit.xml' } }
+    }
+
+    stage('Code Quality') {
+      steps {
+        withSonarQubeEnv('sonarqube') {
+          sh 'sonar-scanner -Dsonar.projectKey=enrollment-service'
+        }
+        timeout(time: 10, unit: 'MINUTES') {
+          waitForQualityGate abortPipeline: true
+        }
+      }
+    }
+
+    stage('Security Scan (source/deps)') {
+      steps { sh 'trivy fs --exit-code 1 --severity HIGH,CRITICAL application/' }
+    }
+
+    stage('Docker Build') {
+      steps { sh 'docker build -t $ECR_REPO:$IMAGE_TAG application/' }
+    }
+
+    stage('Image Scan') {
+      steps { sh 'trivy image --exit-code 1 --severity HIGH,CRITICAL $ECR_REPO:$IMAGE_TAG' }
+    }
+
+    stage('Push to ECR') {
+      steps {
+        sh '''
+          aws ecr get-login-password --region $AWS_REGION \
+            | docker login --username AWS --password-stdin $ECR_REPO
+          docker push $ECR_REPO:$IMAGE_TAG
+        '''
+      }
+    }
+
+    stage('Update GitOps (dev)') {
+      // The ONLY "deployment" step: change the desired state in Git.
+      steps {
+        sshagent(['gitops-deploy-key']) {
+          sh '''
+            git clone $GITOPS_REPO gitops && cd gitops
+            yq -i '.image.tag = strenv(IMAGE_TAG)' apps/enrollment-service/overlays/dev/values-dev.yaml
+            git commit -am "deploy(enrollment-service): dev -> $IMAGE_TAG"
+            git push origin main
+          '''
+        }
+      }
+    }
+    // Promotion to QA/prod: an automated PR against the qa/prod values file,
+    // reviewed + merged by a human; ArgoCD prod requires explicit sync.
+  }
+
+  post {
+    failure { slackSend channel: '#platform-ci', message: "FAILED: enrollment-service ${IMAGE_TAG}" }
+    success { slackSend channel: '#platform-ci', message: "dev deploy queued: ${IMAGE_TAG}" }
+  }
+}

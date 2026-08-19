@@ -1,0 +1,10 @@
+environment            = "prod"
+cluster_name           = "prod-platform-eks"
+vpc_cidr               = "10.20.0.0/16"
+azs                    = ["us-east-1a", "us-east-1b", "us-east-1c"]
+public_subnets         = ["10.20.0.0/20", "10.20.16.0/20", "10.20.32.0/20"]
+private_subnets        = ["10.20.64.0/20", "10.20.80.0/20", "10.20.96.0/20"]
+node_desired_size      = 3
+node_min_size          = 3
+node_max_size          = 10
+node_security_group_id = "sg-REPLACE-prod-nodes"
