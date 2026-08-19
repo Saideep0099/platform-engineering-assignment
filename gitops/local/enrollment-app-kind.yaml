@@ -13,7 +13,7 @@ spec:
       values: |
         image:
           repository: enrollment-service
-          tag: local
+          tag: v2
           pullPolicy: Never
         ingress:
           enabled: false
