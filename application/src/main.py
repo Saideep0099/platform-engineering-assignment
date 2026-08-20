@@ -18,7 +18,7 @@ logging.basicConfig(
 )
 log = logging.getLogger("enrollment")
 
-app = FastAPI(title="Enrollment Service", version=os.getenv("APP_VERSION", "v2"))
+app = FastAPI(title="Enrollment Service", version=os.getenv("APP_VERSION", "v3"))
 
 # In-memory store; real implementation uses RDS via env-provided DSN
 _DB: dict[str, dict] = {}
