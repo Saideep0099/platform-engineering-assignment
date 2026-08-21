@@ -13,7 +13,7 @@ spec:
       values: |
         image:
           repository: enrollment-service
-          tag: v3
+          tag: v4
           pullPolicy: Never
         ingress:
           enabled: false
